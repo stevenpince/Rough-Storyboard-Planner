@@ -16,10 +16,10 @@ block_cipher = None
 
 
 a = Analysis(
-    ['csbp_v1.py'],
+    ['.\\python\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[('images\\*', 'images')],
+    datas=[('python\\images\\*', 'python\\images')],
     hiddenimports=['io', 'PySide6'],
     hookspath=[],
     hooksconfig={},
@@ -47,7 +47,7 @@ exe = EXE(
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
-    icon='.\\images\\favicon.ico',
+    icon='.\\python\\images\\favicon.ico',
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
