@@ -2,7 +2,7 @@ import io
 import sys
 import json
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
@@ -27,12 +27,28 @@ from python.widgets.duration import DurationWidget
 from python.widgets.playback import PlayerWindow
 
 ROWS_PER_PAGE = 6
-COLS = 4
+COLUMNS = 4
 TOTAL_PAGES = 4
+
+
+def resize_image(image: Image, width: int, height: int) -> QPixmap:
+    current_ratio = image.width / image.height
+    target_ratio = width / height
+
+    target_width = width if current_ratio > target_ratio else int(height * current_ratio)
+    target_height = int(width / current_ratio) if current_ratio > target_ratio else height
+
+    return image.resize((target_width, target_height), Image.LANCZOS).tobytes("raw", "RGBA")
+
+def convert_image_to_qmixmap(image: Image, width: int, height: int) -> QPixmap:
+    if image.width != width or image.height != height:
+        image = resize_image(image, width, height)
+
+    return QPixmap.fromImage(image, QImage.Format_RGBA8888)
 
 class StoryboardTable(QTableWidget):
     def __init__(self, page_number=1, fps=DEFAULT_FPS, start_number=1, parent=None):
-        super().__init__(ROWS_PER_PAGE, COLS, parent)
+        super().__init__(ROWS_PER_PAGE, COLUMNS, parent)
         self.page_number = page_number
         self.fps = fps
         self.start_number = start_number
@@ -51,7 +67,7 @@ class StoryboardTable(QTableWidget):
         for row in range(ROWS_PER_PAGE):
             self.setItem(row, 0, self.create_number_item(self.start_number + row))
             self._add_upload_button(row)
-            self._add_description_placeholder(row)
+            self.setItem(row, 2, QTableWidgetItem(" "))
             self._add_duration_widget(row)
 
     def create_number_item(self, num):
@@ -100,7 +116,7 @@ class StoryboardTable(QTableWidget):
         btn.setProperty("row", row)
         btn.setFlat(True)
         btn.setCheckable(False)  # 🔹 Make sure it's not a toggle button
-        btn.setDown(False)     
+        btn.setDown(False)
         btn.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         if pixmap:
             btn.setIcon(pixmap)
@@ -113,20 +129,13 @@ class StoryboardTable(QTableWidget):
         return btn
 
     def _add_upload_button(self, row):
-        btn = self.create_fixed_size_button(row=row)
-        btn.setFixedSize(150, 85)
-        self.setCellWidget(row, 1, btn)
-
-    def _add_description_placeholder(self, row):
-        item = QTableWidgetItem(" ")
-        self.setItem(row, 2, item)
+        self.setCellWidget(row, 1, self.create_fixed_size_button(row=row))
 
     def _add_duration_widget(self, row):
         dur_widget = DurationWidget()
         dur_widget.DurationChanged.connect(self.notify_parent_to_update_total)
-        cell_width = self.columnWidth(3) or 80
-        cell_height = self.rowHeight(row) or 50
-        dur_widget.setFixedSize(cell_width, cell_height)
+        dur_widget.setFixedSize(self.columnWidth(3) or 80, self.rowHeight(row) or 50)
+
         self.setCellWidget(row, 3, dur_widget)
         self.duration_widgets.append(dur_widget)
 
@@ -178,7 +187,7 @@ class StoryboardTable(QTableWidget):
 
         cell_width = self.columnWidth(1) or 150
         cell_height = self.rowHeight(row) or 50
-        qt_pixmap = self.pil_to_qpixmap_scaled(pil_img, cell_width, cell_height)
+        qt_pixmap = resize_image_to_qmixmap(pil_img, cell_width, cell_height)
 
         img_btn = self.create_fixed_size_button(pixmap=qt_pixmap, row=row)
         img_btn.setFixedSize(cell_width, cell_height)
@@ -189,22 +198,6 @@ class StoryboardTable(QTableWidget):
         if self.draw_widgets[row]:
             self.draw_widgets[row].deleteLater()
             self.draw_widgets[row] = None
-
-    def pil_to_qpixmap_scaled(self, pil_img, width, height):
-        img_ratio = pil_img.width / pil_img.height
-        target_ratio = width / height
-
-        if img_ratio > target_ratio:
-            new_width = width
-            new_height = int(width / img_ratio)
-        else:
-            new_height = height
-            new_width = int(height * img_ratio)
-
-        resized_img = pil_img.resize((new_width, new_height), Image.LANCZOS)
-        data = resized_img.tobytes("raw", "RGBA")
-        qimg = QImage(data, resized_img.width, resized_img.height, QImage.Format_RGBA8888)
-        return QPixmap.fromImage(qimg)
 
     def switch_to_draw_mode(self):
         self.mode = "draw"
@@ -231,7 +224,7 @@ class StoryboardTable(QTableWidget):
                 pil_img = self.uploaded_images[row]
                 cell_width = self.columnWidth(1) or 150
                 cell_height = self.rowHeight(row) or 50
-                qt_pixmap = self.pil_to_qpixmap_scaled(pil_img, cell_width, cell_height)
+                qt_pixmap = resize_image_to_qmixmap(pil_img, cell_width, cell_height)
                 img_btn = self.create_fixed_size_button(pixmap=qt_pixmap, row=row)
                 img_btn.setFixedSize(cell_width, cell_height)
                 self.setCellWidget(row, 1, img_btn)
@@ -661,7 +654,7 @@ class StoryboardPlanner(QMainWindow):
                     if page.mode == "upload":
                         cell_width = page.columnWidth(1) or 150
                         cell_height = page.rowHeight(row_idx) or 50
-                        qt_pixmap = page.pil_to_qpixmap_scaled(img, cell_width, cell_height)
+                        qt_pixmap = resize_image_to_qmixmap(img, cell_width, cell_height)
                         btn = page.create_fixed_size_button(pixmap=qt_pixmap, row=row_idx)
                         btn.setFixedSize(cell_width, cell_height)
                         page.setCellWidget(row_idx, 1, btn)

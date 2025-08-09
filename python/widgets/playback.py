@@ -44,8 +44,8 @@ class PlayerWindow(QDialog):
             self.timer.stop()
             return
 
-        s, f = self.durations[self.current_index]
-        total_ms = int((s + f / self.fps) * 1000)
+        f = self.durations[self.current_index]
+        total_ms = int((f / self.fps) * 1000)
 
         if total_ms <= 0:
             self.current_index += 1
@@ -140,8 +140,8 @@ class PlayerWindow(QDialog):
         except IOError:
             font = ImageFont.load_default()
 
-        s, f = self.durations[self.current_index]
-        total_ms = int((s + f / self.fps) * 1000)
+        f = self.durations[self.current_index]
+        total_ms = int((f / self.fps) * 1000)
         elapsed_ms = min(self.elapsed_ms, total_ms)
         elapsed_sec = elapsed_ms // 1000
         elapsed_frame = int((elapsed_ms % 1000) / (1000 / self.fps))

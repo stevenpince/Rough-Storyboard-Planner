@@ -1,11 +1,28 @@
 from PIL import Image, ImageDraw
 
-from PySide6.QtWidgets import QWidget, QLabel, QCheckBox, QSlider, QVBoxLayout, QHBoxLayout, QPushButton, QColorDialog, QDialog
+from PySide6.QtWidgets import QWidget, QLabel, QCheckBox, QSlider, QVBoxLayout, QHBoxLayout, QPushButton, QColorDialog, QDialog, QToolButton
 from PySide6.QtGui import QPixmap, QImage, Qt
 
 
 from python.utility.colors import WHITE, BLACK
 from python.utility.settings import DEFAULT_WIDTH, DEFAULT_HEIGHT
+
+class ThumbnailToolButton(QToolButton):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonIconOnly)
+
+class BaseThumbnailWidget(QWidget):
+
+# If Empty - display a draw and an upload button.
+# Once filled, display those buttons on hover only.
+# Allow to draw over an uploaded image.
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.upload_button = ThumbnailToolButton()
+        self.edit_button = ThumbnailToolButton()
 
 
 class DrawingWidget(QWidget):
@@ -163,10 +180,11 @@ class BigDrawingDialog(QDialog):
         self.last_pos = None
 
     def draw_point(self, pos):
-        self.draw.ellipse(
-            [pos.x() - self.brush_size, pos.y() - self.brush_size,
-             pos.x() + self.brush_size, pos.y() + self.brush_size],
-            fill=WHITE if self.eraser_mode else self.brush_color)
+        self.draw.ellipse(xy=[pos.x() - self.brush_size,
+                           pos.y() - self.brush_size,
+                           pos.x() + self.brush_size,
+                           pos.y() + self.brush_size],
+                          fill=WHITE if self.eraser_mode else self.brush_color)
 
         self.update_pixmap()
 
