@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-    QTableWidgetItem, QPushButton, QLabel, QComboBox, QFileDialog, QMessageBox, QColorDialog,
+    QTableWidgetItem, QPushButton, QLabel, QComboBox, QFileDialog, QMessageBox, QColorDialog, QMenu,
     QCheckBox, QDialog, QSizePolicy, QLineEdit, QMenuBar, QAbstractItemView, QSlider
 )
 
@@ -326,7 +326,16 @@ class StoryboardTable(QTableWidget):
             btn.setText("")
         else:
             btn.setText("Upload Image")
+        
+        # Left button clicked
         btn.clicked.connect(self.handle_upload_clicked)
+
+
+        # Right button clicked
+        btn.setContextMenuPolicy(Qt.CustomContextMenu)
+        btn.customContextMenuRequested.connect(
+            lambda pos, b=btn, r=row: self.show_image_context_menu(pos, b, r)
+        )
 
         return btn
 
@@ -409,6 +418,32 @@ class StoryboardTable(QTableWidget):
             self.draw_widgets[row].deleteLater()
             self.draw_widgets[row] = None
 
+    def show_image_context_menu(self, pos, button, row):
+        menu = QMenu(self)
+
+        remove_action = QAction("Remove Image", self)
+        remove_action.triggered.connect(lambda: self.remove_uploaded_image(row))
+        menu.addAction(remove_action)
+
+        menu.exec(button.mapToGlobal(pos))
+
+
+    def remove_uploaded_image(self, row):
+        """Remove uploaded image and restore appropriate widget."""
+        self.uploaded_images[row] = None
+
+        if self.mode == "draw":
+            # Restore drawing widget
+            if self.draw_widgets[row] is None:
+                dw = DrawingWidget(self.columnWidth(1), self.rowHeight(row))
+                self.draw_widgets[row] = dw
+            else:
+                dw = self.draw_widgets[row]
+                dw.setFixedSize(self.columnWidth(1), self.rowHeight(row))
+            self.setCellWidget(row, 1, self.draw_widgets[row])
+        else:  # upload mode
+            self._add_upload_button(row)
+
     def pil_to_qpixmap_scaled(self, pil_img, width, height):
         img_ratio = pil_img.width / pil_img.height
         target_ratio = width / height
@@ -450,9 +485,12 @@ class StoryboardTable(QTableWidget):
 
     def switch_to_upload_mode(self):
         self.mode = "upload"
+        # Replace storyboard column widgets with upload buttons or uploaded image buttons
         for row in range(ROWS_PER_PAGE):
-            if self.uploaded_images[row] is not None:
-                # Keep uploaded image
+            if self.draw_widgets[row]:
+                self.draw_widgets[row].deleteLater()
+                self.draw_widgets[row] = None
+            if self.uploaded_images[row]:
                 pil_img = self.uploaded_images[row]
                 cell_width = self.columnWidth(1) or 150
                 cell_height = self.rowHeight(row) or 50
@@ -460,16 +498,14 @@ class StoryboardTable(QTableWidget):
                 img_btn = self.create_fixed_size_button(pixmap=qt_pixmap, row=row)
                 img_btn.setFixedSize(cell_width, cell_height)
                 self.setCellWidget(row, 1, img_btn)
-            elif self.draw_widgets[row] is not None:
-                # Keep drawing widget instead of deleting it
-                dw = self.draw_widgets[row]
-                dw.setFixedSize(self.columnWidth(1), self.rowHeight(row))
-                self.setCellWidget(row, 1, dw)
             else:
-                # Otherwise add an upload button
                 self._add_upload_button(row)
 
     def mousePressEvent(self, event):
+        if event.button() == Qt.RightButton:
+            super().mousePressEvent(event)
+            return
+
         if self.mode != "draw":
             super().mousePressEvent(event)
             return
