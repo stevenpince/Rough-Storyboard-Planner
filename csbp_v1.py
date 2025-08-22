@@ -427,25 +427,9 @@ class StoryboardTable(QTableWidget):
 
     def switch_to_draw_mode(self):
         self.mode = "draw"
-        # Replace storyboard column widgets with DrawingWidgets or blank if none
         for row in range(ROWS_PER_PAGE):
-            if self.draw_widgets[row] is None:
-                dw = DrawingWidget(self.columnWidth(1), self.rowHeight(row))
-                self.draw_widgets[row] = dw
-            else:
-                dw = self.draw_widgets[row]
-                dw.setFixedSize(self.columnWidth(1), self.rowHeight(row))
-            self.setCellWidget(row, 1, self.draw_widgets[row])
-            self.uploaded_images[row] = None  # Clear uploaded images in draw mode
-
-    def switch_to_upload_mode(self):
-        self.mode = "upload"
-        # Replace storyboard column widgets with upload buttons or uploaded image buttons
-        for row in range(ROWS_PER_PAGE):
-            if self.draw_widgets[row]:
-                self.draw_widgets[row].deleteLater()
-                self.draw_widgets[row] = None
-            if self.uploaded_images[row]:
+            if self.uploaded_images[row] is not None:
+                # Keep uploaded image
                 pil_img = self.uploaded_images[row]
                 cell_width = self.columnWidth(1) or 150
                 cell_height = self.rowHeight(row) or 50
@@ -454,6 +438,35 @@ class StoryboardTable(QTableWidget):
                 img_btn.setFixedSize(cell_width, cell_height)
                 self.setCellWidget(row, 1, img_btn)
             else:
+                # Show drawing widget
+                if self.draw_widgets[row] is None:
+                    dw = DrawingWidget(self.columnWidth(1), self.rowHeight(row))
+                    self.draw_widgets[row] = dw
+                else:
+                    dw = self.draw_widgets[row]
+                    dw.setFixedSize(self.columnWidth(1), self.rowHeight(row))
+                self.setCellWidget(row, 1, dw)
+
+
+    def switch_to_upload_mode(self):
+        self.mode = "upload"
+        for row in range(ROWS_PER_PAGE):
+            if self.uploaded_images[row] is not None:
+                # Keep uploaded image
+                pil_img = self.uploaded_images[row]
+                cell_width = self.columnWidth(1) or 150
+                cell_height = self.rowHeight(row) or 50
+                qt_pixmap = self.pil_to_qpixmap_scaled(pil_img, cell_width, cell_height)
+                img_btn = self.create_fixed_size_button(pixmap=qt_pixmap, row=row)
+                img_btn.setFixedSize(cell_width, cell_height)
+                self.setCellWidget(row, 1, img_btn)
+            elif self.draw_widgets[row] is not None:
+                # Keep drawing widget instead of deleting it
+                dw = self.draw_widgets[row]
+                dw.setFixedSize(self.columnWidth(1), self.rowHeight(row))
+                self.setCellWidget(row, 1, dw)
+            else:
+                # Otherwise add an upload button
                 self._add_upload_button(row)
 
     def mousePressEvent(self, event):
